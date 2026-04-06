@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL for n8n backend ──────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: n8n_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${N8N_POSTGRESDB_USER:-n8n_user}
+      POSTGRES_PASSWORD: ${N8N_POSTGRESDB_PASSWORD:-n8n_password}
+      POSTGRES_DB: ${N8N_POSTGRESDB_DATABASE:-n8n}
+    volumes:
+      - n8n_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_POSTGRESDB_USER:-n8n_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - automation_net
+
+  # ── Adminer (DB Web UI) ─────────────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: adminer_ui
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - automation_net
+
+  # ── n8n Workflow Orchestrator ───────────────────────────────────────
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n_app
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE:-true}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:-admin}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${N8N_POSTGRESDB_DATABASE:-n8n}
+      - DB_POSTGRESDB_USER=${N8N_POSTGRESDB_USER:-n8n_user}
+      - DB_POSTGRESDB_PASSWORD=${N8N_POSTGRESDB_PASSWORD:-n8n_password}
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - GENERIC_TIMEZONE=Asia/Kolkata
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - automation_net
+
+  # ── Ollama (Local LLM Runner) ──────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_llm
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - automation_net
+
+  # ── Contacts Fetching Service ───────────────────────────────────────
+  contacts_service:
+    build:
+      context: ./contacts_service
+    container_name: contacts_svc
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - contacts_db_data:/app/data
+    networks:
+      - automation_net
+
+  # ── AI Email Generator Service ─────────────────────────────────────
+  email_generator:
+    build:
+      context: ./email_generator
+    container_name: email_gen
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - automation_net
+
+  # ── Email Sender Service ───────────────────────────────────────────
+  email_sender:
+    build:
+      context: ./email_sender
+    container_name: email_send
+    restart: always
+    ports:
+      - "8002:8002"
+    environment:
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - DAILY_LIMIT=${DAILY_LIMIT:-50}
+      - DRY_RUN=${DRY_RUN:-true}
+    volumes:
+      - ./assets:/app/assets:ro
+      - email_sender_data:/app/data
+    networks:
+      - automation_net
+
+networks:
+  automation_net:
+    driver: bridge
+    name: job_automation_network
+
+volumes:
+  n8n_data:
+  n8n_postgres_data:
+  ollama_data:
+  contacts_db_data:
+  email_sender_data:

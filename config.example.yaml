@@ -1,0 +1,36 @@
+profile:
+  name: "Your Name"
+  title: "Your Target Role (e.g. Backend Engineer)"
+  years_of_experience: 2
+
+  github: "https://github.com/yourusername"
+  linkedin: "https://www.linkedin.com/in/yourprofile/"
+  portfolio: "https://www.yourwebsite.com" 
+
+  location: "Your City, Country"
+
+  skills:
+    - Python
+    - Docker
+    - APIs
+
+  bio: >
+    A concise 2-3 sentence overview of who you are and what value you bring.
+    Keep it professional but natural.
+
+  notable_projects:
+    - name: "Your Best Project"
+      description: >
+        What the project did and what tech stack you used to build it.
+
+  interests:
+    - AI Infrastructure
+    - Startups
+
+  goals:
+    short_term: "The exact type of role you are looking for."
+
+  communication_style:
+    tone: "concise, confident, curious"
+    avoid: ["generic phrases", "buzzwords", "overly formal language"]
+    emphasize: ["impact", "systems built", "ownership"]

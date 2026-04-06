@@ -1,0 +1,33 @@
+# Environment
+.env
+*.pyc
+__pycache__/
+
+# Databases
+*.db
+*.db-journal
+
+# Runtime data
+email_sender/data/
+contacts_service/data/
+rate_limiter.json
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ollama models (large)
+ollama_data/
+
+# Personal Data & Leads (DO NOT SHARE PUBLICLY)
+config.yaml
+assets/
+*.csv
