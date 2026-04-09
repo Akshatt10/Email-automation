@@ -15,8 +15,9 @@ profile:
     - APIs
 
   bio: >
-    A concise 2-3 sentence overview of who you are and what value you bring.
-    Keep it professional but natural.
+    Write this not as a generic LinkedIn summary, but as a builder.
+    Show that you don't wait for permission to figure things out. If something needs to exist,
+    you build it, break it, fix it, and deploy it. Focus on what you've actually shipped.
 
   notable_projects:
     - name: "Your Best Project"
@@ -31,6 +32,18 @@ profile:
     short_term: "The exact type of role you are looking for."
 
   communication_style:
-    tone: "concise, confident, curious"
-    avoid: ["generic phrases", "buzzwords", "overly formal language"]
-    emphasize: ["impact", "systems built", "ownership"]
+    tone: "direct, builder-mindset, zero fluff — like a founder pitching to an engineer"
+    avoid: ["generic phrases", "buzzwords", "overly formal language", "begging for a chance", "I'm a quick learner"]
+    emphasize: ["things shipped and deployed", "problems solved independently", "speed of execution"]
+    # What to explicitly focus on vs avoid mentioning
+    focus_areas: "backend systems engineering and data pipelines"
+    highlight_project: "my AI Knowledge Vault (RAG System)"
+    avoid_projects: "50 emails a day, n8n, frontend or minor basic projects"
+
+  target_roles:
+    - "Backend Engineer"
+    - "AI/ML Engineer"
+
+  avoid_companies:
+    - "outsourcing companies"
+    - "bond-based companies"
