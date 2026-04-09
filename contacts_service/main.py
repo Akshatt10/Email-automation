@@ -1,39 +1,30 @@
 """
-Contacts Fetching Microservice
-Fetches HR/recruiter contacts from Apollo.io and Hunter.io,
-stores them in a local SQLite database for tracking.
+Contacts Service for storing and managing job outreach contacts.
 """
 
 import os
 import logging
 import sqlite3
-from datetime import datetime, timezone
-from contextlib import asynccontextmanager
-from typing import Optional
-
 import csv
 import shutil
 import asyncio
+from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from typing import Optional
 from io import StringIO
-import httpx
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel, Field
 
-# ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# ── Config ───────────────────────────────────────────────────
 DB_PATH = "/app/data/contacts.db"
 INGEST_PATH = "/app/ingest"
 
-
-# ── CSV File Ingestion Helper ────────────────────────────────
 def process_csv_content(text: str) -> dict:
-    """Helper to parse CSV text and upsert contacts."""
     reader = csv.DictReader(StringIO(text))
     saved_count = 0
     duplicate_count = 0
@@ -69,9 +60,8 @@ def process_csv_content(text: str) -> dict:
         "skipped": skipped_count
     }
 
-
 async def auto_ingest_worker():
-    """Background task to scan for new CSV files in the ingest folder."""
+    """Background task scanning for CSV files in the ingest folder."""
     os.makedirs(INGEST_PATH, exist_ok=True)
     logger.info("Auto-ingest worker started. Watching %s", INGEST_PATH)
 
@@ -86,22 +76,20 @@ async def auto_ingest_worker():
                     with open(file_path, "r", encoding="utf-8-sig") as f:
                         stats = process_csv_content(f.read())
                     
-                    # Mark as processed
                     shutil.move(file_path, f"{file_path}.processed")
                     logger.info("Successfully ingested %s: Saved %d, Duplicates %d", 
                                 filename, stats["saved"], stats["duplicates"])
                 except Exception as e:
                     logger.error("Error processing %s: %s", filename, e)
-
         except Exception as e:
             logger.error("Auto-ingest worker loop error: %s", e)
         
-        await asyncio.sleep(60)  # Check every minute
+        await asyncio.sleep(60)
+
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
-
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -124,31 +112,21 @@ def init_db():
     conn.close()
     logger.info("Database initialised at %s", DB_PATH)
 
-
-# ── Lifespan ─────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    # Start the auto-ingest background task
     asyncio.create_task(auto_ingest_worker())
     yield
 
-
 app = FastAPI(
     title="Contacts Service",
-    description="Fetches and stores recruiter/HR contacts from Apollo.io & Hunter.io",
+    description="Manages recruiter contacts and queue for outreach",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-
-# ── Pydantic Models ──────────────────────────────────────────
 class FetchRequest(BaseModel):
-    """
-    Request model for n8n to pull the next batch of pending contacts.
-    """
     limit: int = Field(50, ge=1, le=200)
-
 
 class ContactOut(BaseModel):
     id: int
@@ -162,17 +140,10 @@ class ContactOut(BaseModel):
     created_at: Optional[str] = None
     sent_at: Optional[str] = None
 
-
 class StatusResponse(BaseModel):
     status: str
 
-
-
-
-
-# ── Upsert contact into DB ──────────────────────────────────
 def upsert_contact(contact: dict) -> Optional[int]:
-    """Insert contact if email doesn't already exist. Returns row id or None."""
     conn = get_db()
     try:
         cursor = conn.execute(
@@ -194,22 +165,16 @@ def upsert_contact(contact: dict) -> Optional[int]:
         conn.commit()
         if cursor.rowcount > 0:
             return cursor.lastrowid
-        return None  # duplicate
+        return None
     finally:
         conn.close()
 
-
-# ── Routes ───────────────────────────────────────────────────
 @app.get("/health", response_model=StatusResponse)
 async def health():
     return {"status": "ok"}
 
-
 @app.post("/upload-csv")
 async def upload_csv(file: UploadFile = File(...)):
-    """
-    Manual upload via API (used by frontend or manual curl).
-    """
     if not file.filename.endswith(".csv"):
         raise HTTPException(400, "File must be a CSV")
 
@@ -224,14 +189,8 @@ async def upload_csv(file: UploadFile = File(...)):
         "no_email_skipped": stats["skipped"]
     }
 
-
 @app.post("/fetch-contacts", response_model=list[ContactOut])
 async def fetch_contacts(req: FetchRequest):
-    """
-    Instead of calling Apollo, this now acts as a queue puller.
-    It fetches 'limit' number of pending contacts directly from the local SQLite database 
-    and hands them to n8n for processing.
-    """
     conn = get_db()
     try:
         rows = conn.execute(
@@ -245,10 +204,8 @@ async def fetch_contacts(req: FetchRequest):
     finally:
         conn.close()
 
-
 @app.get("/contacts", response_model=list[ContactOut])
 async def list_contacts(status: Optional[str] = Query(None, examples=["pending", "sent", "failed"])):
-    """List all contacts, optionally filtered by status."""
     conn = get_db()
     try:
         if status:
@@ -261,10 +218,21 @@ async def list_contacts(status: Optional[str] = Query(None, examples=["pending",
     finally:
         conn.close()
 
+@app.get("/contacts/count")
+async def count_contacts():
+    conn = get_db()
+    try:
+        total = conn.execute("SELECT COUNT(*) FROM contacts").fetchone()[0]
+        status_counts = conn.execute(
+            "SELECT status, COUNT(*) FROM contacts GROUP BY status"
+        ).fetchall()
+        breakdown = {row[0]: row[1] for row in status_counts}
+        return {"total": total, "breakdown": breakdown}
+    finally:
+        conn.close()
 
 @app.patch("/contacts/{contact_id}/status")
 async def update_status(contact_id: int, status: str = Query(...)):
-    """Update a contact's status (used by the email sender)."""
     conn = get_db()
     try:
         sent_at = datetime.now(timezone.utc).isoformat() if status == "sent" else None
@@ -276,7 +244,6 @@ async def update_status(contact_id: int, status: str = Query(...)):
         return {"updated": True, "id": contact_id, "status": status}
     finally:
         conn.close()
-
 
 if __name__ == "__main__":
     import uvicorn
