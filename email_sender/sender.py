@@ -83,7 +83,7 @@ def send_email(to_email: str, subject: str, body: str, resume_path: str = "/app/
     if not allowed:
         msg = f"Daily limit reached ({DAILY_LIMIT})."
         logger.warning(msg)
-        return {"success": False, "message": msg, "timestamp": now}
+        return {"success": False, "message": msg, "timestamp": now, "is_dry_run": dry_run}
 
     email_msg = MIMEMultipart()
     email_msg["From"] = SMTP_USER
@@ -95,12 +95,12 @@ def send_email(to_email: str, subject: str, body: str, resume_path: str = "/app/
     if dry_run:
         logger.info("[DRY RUN] To: %s | Subject: %s", to_email, subject)
         increment_rate_counter()
-        return {"success": True, "message": f"[DRY RUN] Logged for {to_email}", "timestamp": now}
+        return {"success": True, "message": f"[DRY RUN] Logged for {to_email}", "timestamp": now, "is_dry_run": True}
 
     if not SMTP_USER or not SMTP_PASS:
         msg = "SMTP credentials missing."
         logger.error(msg)
-        return {"success": False, "message": msg, "timestamp": now}
+        return {"success": False, "message": msg, "timestamp": now, "is_dry_run": False}
 
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
@@ -111,10 +111,10 @@ def send_email(to_email: str, subject: str, body: str, resume_path: str = "/app/
             server.send_message(email_msg)
         increment_rate_counter()
         logger.info("[SENT] %s", to_email)
-        return {"success": True, "message": f"Sent to {to_email}", "timestamp": now}
+        return {"success": True, "message": f"Sent to {to_email}", "timestamp": now, "is_dry_run": False}
     except Exception as e:
         logger.error("Email failed: %s", e)
-        return {"success": False, "message": str(e), "timestamp": now}
+        return {"success": False, "message": str(e), "timestamp": now, "is_dry_run": False}
 
 def get_daily_stats() -> dict:
     data = _load_rate_data()
