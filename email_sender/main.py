@@ -37,6 +37,7 @@ class SendRequest(BaseModel):
 
 class SendResponse(BaseModel):
     success: bool
+    is_dry_run: bool
     message: str
     timestamp: str
 
