@@ -117,7 +117,30 @@
                 "type": "boolean",
                 "operation": "equals"
               }
-            },
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-result",
+      "name": "Email API Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
             {
               "id": "check-not-dry-run",
               "leftValue": "={{ $json.is_dry_run }}",
@@ -132,13 +155,13 @@
         },
         "options": {}
       },
-      "id": "check-result",
-      "name": "Email Sent OK?",
+      "id": "is-real-send",
+      "name": "Is Real Send?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1440,
-        400
+        1680,
+        300
       ]
     },
     {
@@ -152,8 +175,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1700,
-        300
+        1920,
+        200
       ]
     },
     {
@@ -167,7 +190,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1700,
+        1920,
         500
       ]
     },
@@ -190,8 +213,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1940,
-        300
+        2180,
+        200
       ]
     },
     {
@@ -213,7 +236,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1940,
+        2180,
         500
       ]
     }
@@ -279,14 +302,32 @@
       "main": [
         [
           {
-            "node": "Email Sent OK?",
+            "node": "Email API Success?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Email Sent OK?": {
+    "Email API Success?": {
+      "main": [
+        [
+          {
+            "node": "Is Real Send?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Contact as Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Real Send?": {
       "main": [
         [
           {
@@ -297,7 +338,7 @@
         ],
         [
           {
-            "node": "Mark Contact as Failed",
+            "node": "Log Success",
             "type": "main",
             "index": 0
           }
